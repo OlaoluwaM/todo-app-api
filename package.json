@@ -3,8 +3,21 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "prebuild": "rm -rf ./dist",
+    "build": "tsc -p ./tsconfig.prod.json",
+    "postbuild": "tsp ./dist",
+    "prestart": "npm run build",
+    "start": "node ./dist/server.js",
+    "predev": "npm run compose:down && npm run compose:up:db",
+    "dev": "nodemon src/server.ts",
+    "compose:up": "docker-compose up -d",
+    "compose:up:force": "docker-compose up --force-recreate --build --remove-orphans --always-recreate-deps --renew-anon-volumes -d",
+    "compose:up:db": "docker-compose up -d postgres",
+    "compose:up:db:force": "docker-compose up --force-recreate --build --remove-orphans --always-recreate-deps --renew-anon-volumes -d postgres",
+    "compose:down": "docker-compose down",
+    "compose:down:force": "docker-compose down -v --rmi all --remove-orphans --"
   },
   "keywords": [],
   "author": "Olaoluwa Mustapha <olaolum@pm.me> (https://www.github.com/OlaoluwaM)",
@@ -13,12 +26,13 @@
     "@commitlint/cli": "^17.0.3",
     "@commitlint/config-conventional": "^17.0.3",
     "@types/eslint-config-prettier": "^6.11.0",
+    "@types/hapi__hapi": "^20.0.12",
     "@types/jest": "^28.1.7",
     "@types/node": "^18.7.5",
     "@types/nodemon": "^1.19.2",
     "@types/pg": "^8.6.5",
     "@types/ramda": "^0.28.15",
-    "@types/reflect-metadata": "^0.1.0",
+    "@types/sequelize": "^4.28.14",
     "@typescript-eslint/eslint-plugin": "^5.33.1",
     "@typescript-eslint/parser": "^5.33.1",
     "eslint": "^8.22.0",
@@ -30,16 +44,19 @@
     "jest": "^28.1.3",
     "nodemon": "^2.0.19",
     "prettier": "^2.7.1",
+    "ts-import-patch": "^1.0.1",
     "ts-jest": "^28.0.8",
     "ts-node": "^10.9.1",
     "typescript": "^4.7.4"
   },
   "dependencies": {
     "@hapi/hapi": "^20.2.2",
+    "dotenv": "^16.0.1",
     "fp-ts": "^2.12.2",
     "pg": "^8.7.3",
     "ramda": "^0.28.0",
     "reflect-metadata": "^0.1.13",
-    "typeorm": "^0.3.7"
+    "sequelize": "^6.21.3",
+    "sequelize-typescript": "^2.1.3"
   }
 }

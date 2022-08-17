@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - '5003:5003'
+    environment:
+      - NODE_ENV=container
+    env_file:
+      - ./.env
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5003/']
+      interval: 10s
+      timeout: 5s,
+      retries: 5
+
+  postgres:
+    image: postgres:14
+    mem_limit: 600m
+    user: postgres
+    env_file:
+      - ./.env
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-d', 'todos', '-p', '5432']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  pgdata:
+networks:
+  default:
