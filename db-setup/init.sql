@@ -34,7 +34,7 @@ EXECUTE PROCEDURE set_updated_at_timestamp();
 
 CREATE TABLE IF NOT EXISTS tasks (
   task_id UUID PRIMARY KEY,
-  group_id UUID REFERENCES groups ON DELETE CASCADE,
+  group_id UUID NOT NULL REFERENCES groups ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
   completed BOOLEAN NOT NULL DEFAULT FALSE,
