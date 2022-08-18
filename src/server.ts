@@ -1,5 +1,5 @@
-import 'reflect-metadata';
 import Hapi from '@hapi/hapi';
+
 import config from './config/index';
 
 async function serverInit() {
