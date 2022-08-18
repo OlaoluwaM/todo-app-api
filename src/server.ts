@@ -1,6 +1,6 @@
 import 'reflect-metadata';
-import config from './config/index';
 import Hapi from '@hapi/hapi';
+import config from './config/index';
 
 async function serverInit() {
   const server = Hapi.server({
