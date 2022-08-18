@@ -130,3 +130,4 @@ dist
 .pnp.*
 
 # Custom Additions
+src/db/schema-auto.ts
