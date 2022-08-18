@@ -16,6 +16,10 @@ const config = {
     PORT: process.env.PORT,
     HOST: process.env.SERVER_HOST,
   },
+  test: {
+    PORT: 5006,
+    HOST: 'localhost',
+  },
 };
 
 const ENV = (process.env?.NODE_ENV ?? 'dev') as keyof typeof config;
