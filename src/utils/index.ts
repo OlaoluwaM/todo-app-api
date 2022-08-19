@@ -33,6 +33,10 @@ export function id<T>(value: T) {
   return value;
 }
 
+export function unit<T>(val: T): () => T {
+  return () => val;
+}
+
 export class AggregateError extends Error {
   #messages: string[] = [];
 

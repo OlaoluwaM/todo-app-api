@@ -19,8 +19,18 @@ const config = {
   test: {
     PORT: 5006,
     HOST: 'localhost',
+    POSTGRES_DB: 'test_todos',
   },
 };
 
 const ENV = (process.env?.NODE_ENV ?? 'dev') as keyof typeof config;
-export default { ...config[ENV], ...commonConfigOptions };
+const currentConfig = config[ENV];
+export default { ...commonConfigOptions, ...currentConfig };
+
+export function generateConnectionURI() {
+  const { HOST } = currentConfig;
+  const { POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT } =
+    commonConfigOptions;
+
+  return `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
+}
