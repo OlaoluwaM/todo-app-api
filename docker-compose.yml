@@ -22,7 +22,7 @@ services:
   postgres:
     build:
       context: .
-      dockerfile: ./postgres
+      dockerfile: ./postgres_dockerfile
     mem_limit: 600m
     user: postgres
     env_file:

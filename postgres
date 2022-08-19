@@ -1,4 +1,0 @@
-FROM postgres:14
-COPY ./db-setup/ /docker-entrypoint-initdb.d/
-RUN chown postgres:postgres /docker-entrypoint-initdb.d/*.sql
-CMD ["docker-entrypoint.sh", "postgres"]
