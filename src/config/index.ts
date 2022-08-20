@@ -24,13 +24,13 @@ const config = {
 };
 
 const ENV = (process.env?.NODE_ENV ?? 'dev') as keyof typeof config;
-const currentConfig = config[ENV];
-export default { ...commonConfigOptions, ...currentConfig };
+const currentConfig = { ...commonConfigOptions, ...config[ENV] };
 
 export function generateConnectionURI() {
-  const { HOST } = currentConfig;
-  const { POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT } =
-    commonConfigOptions;
+  const { POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT, HOST } =
+    currentConfig;
 
   return `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
 }
+
+export default currentConfig;

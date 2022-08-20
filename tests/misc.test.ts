@@ -6,9 +6,9 @@ import { pipe } from 'fp-ts/function';
 import { toNumber } from '../src/utils/index';
 import { manualFail } from './helpers';
 import { QueryResult } from '../src/db/queryBuilder';
-import { DateDecoder } from '../src/lib/decoders';
 import { AggregateError } from '../src/lib/AggregateError';
-import { v4 as randomUUID } from 'uuid';
+import { DateDecoder, toUUID, UUID } from '../src/lib/decoders';
+import { v4 as randomUuidLikeString } from 'uuid';
 import { GroupDecoder, RowType, TaskDecoder } from '@db/schema';
 import {
   DbQuery,
@@ -32,11 +32,11 @@ afterAll(async () => {
 });
 
 describe('Tests for query builder tests', () => {
-  let groupID: string;
+  let groupID: UUID;
   let nonReturningQuery: QueryResult<RowType[]>;
 
   beforeAll(async () => {
-    groupID = randomUUID();
+    groupID = toUUID(randomUuidLikeString());
 
     nonReturningQuery = await dbQuery(
       `INSERT INTO groups(group_id, title, description) VALUES($1, $2, $3)`
@@ -49,8 +49,8 @@ describe('Tests for query builder tests', () => {
       ])(TaskDecoder)();
 
     await Promise.all([
-      createTasks(randomUUID(), 'Buy Razer Laptop'),
-      createTasks(randomUUID(), 'Buy Razer Mouse'),
+      createTasks(randomUuidLikeString(), 'Buy Razer Laptop'),
+      createTasks(randomUuidLikeString(), 'Buy Razer Mouse'),
     ]);
   });
 
