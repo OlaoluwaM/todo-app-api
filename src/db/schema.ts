@@ -1,31 +1,31 @@
-import * as t from 'io-ts';
-import * as T from 'io-ts/Type';
+import * as d from 'io-ts/Decoder';
 
-import { DateCodec, uuidCodec } from './codecs';
+import { DateDecoder, UUIDDecoder } from '../lib/decoders';
 
-export const GroupCodec = t.type({
-  group_id: uuidCodec,
-  title: t.string,
-  description: T.nullable(t.string),
-  created_at: DateCodec,
-  updated_at: DateCodec,
+export const GroupDecoder = d.struct({
+  group_id: UUIDDecoder,
+  title: d.string,
+  description: d.nullable(d.string),
+  created_at: DateDecoder,
+  updated_at: DateDecoder,
 });
 
-export type GroupT = t.TypeOf<typeof GroupCodec>;
+export type Group = d.TypeOf<typeof GroupDecoder>;
+export type GroupCreationAttributes = Pick<Group, 'title' | 'description'>;
 
-export const TaskCodec = t.type({
-  task_id: uuidCodec,
-  group_id: uuidCodec,
-  name: t.string,
-  description: T.nullable(t.string),
-  completed: t.boolean,
-  due_date: T.nullable(DateCodec),
-  completed_at: T.nullable(DateCodec),
-  created_at: DateCodec,
-  updated_at: DateCodec,
+export const TaskDecoder = d.struct({
+  task_id: UUIDDecoder,
+  group_id: UUIDDecoder,
+  name: d.string,
+  description: d.nullable(d.string),
+  completed: d.boolean,
+  due_date: d.nullable(DateDecoder),
+  completed_at: d.nullable(DateDecoder),
+  created_at: DateDecoder,
+  updated_at: DateDecoder,
 });
 
-export type TaskT = t.TypeOf<typeof TaskCodec>;
+export type Task = d.TypeOf<typeof TaskDecoder>;
 
-export type RowCodec = typeof GroupCodec | typeof TaskCodec;
-export type RowType = GroupT | TaskT;
+export type RowDecoder = typeof GroupDecoder | typeof TaskDecoder;
+export type RowType = Group | Task;

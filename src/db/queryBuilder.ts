@@ -1,47 +1,44 @@
-import * as E from 'fp-ts/lib/Either';
-import * as TE from 'fp-ts/lib/TaskEither';
-import * as RTE from 'fp-ts/lib/ReaderTaskEither';
+import * as E from 'fp-ts/Either';
+import * as TE from 'fp-ts/TaskEither';
 
 import pkg from 'pg';
 
-import { flow, pipe } from 'fp-ts/lib/function';
-import { PathReporter } from 'io-ts/PathReporter';
-import { map, sequence } from 'fp-ts/lib/Array';
-import { AggregateError, newAggregateError } from '../utils/index';
-import { Validation, Any as AnyCodec, TypeOf } from 'io-ts';
+import { flow, pipe } from 'fp-ts/function';
+import { map, sequence } from 'fp-ts/Array';
+import { Decoder, draw } from 'io-ts/Decoder';
+import { AggregateError, newAggregateError } from '../lib/AggregateError';
+
+type AnyDecoder = Decoder<unknown, any>;
 
 export type QueryParams = unknown[];
-export type QueryResult<HappyPathT = unknown> = E.Either<AggregateError, HappyPathT>;
-// RTE.ReaderTaskEither<AnyCodec, AggregateError, RowType[]>;
+export type QueryResult<A = unknown> = E.Either<AggregateError, A>;
+export type QueryBuilderClient = ReturnType<typeof queryBuilder>;
 
 export default function queryBuilder(dbConnectionInstance: pkg.Pool) {
   return (query: string) =>
     (queryParams?: unknown[]) =>
-    <CodecToUse extends AnyCodec>(codecToUse: CodecToUse) =>
+    <DecoderToUse extends AnyDecoder>(decoder: DecoderToUse) =>
       pipe(
         TE.tryCatch(
           () => dbConnectionInstance.query(query, queryParams),
           reason => newAggregateError((reason as Error).message)
         ),
         TE.map(queryResult => queryResult.rows),
-        TE.chain(refineQueryResults(codecToUse))
+        TE.chain(refineQueryResults(decoder))
       );
 }
 
-function refineQueryResults<CodecToUse extends AnyCodec>(codecToUse: CodecToUse) {
-  return flow(map(parsedQueryResult(codecToUse)), sequence(E.Applicative), TE.fromEither);
+function refineQueryResults<DecoderToUse extends AnyDecoder>(decoder: DecoderToUse) {
+  return flow(map(parsedQueryResult(decoder)), sequence(E.Applicative), TE.fromEither);
 }
 
-function parsedQueryResult<CodecToUse extends AnyCodec>(codecToUse: CodecToUse) {
+function parsedQueryResult<DecoderToUse extends AnyDecoder>(decoder: DecoderToUse) {
   return (queryResult: any) => {
-    type CodecSchema = TypeOf<CodecToUse>;
-
-    const decodeResult = codecToUse.decode(queryResult) as Validation<CodecSchema>;
-    const errorReports = PathReporter.report(decodeResult);
+    const decodeResult = decoder.decode(queryResult);
 
     return pipe(
       decodeResult,
-      E.mapLeft(() => newAggregateError(errorReports))
+      E.mapLeft(decoderErr => newAggregateError(draw(decoderErr)))
     );
   };
 }

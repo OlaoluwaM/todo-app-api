@@ -1,15 +1,15 @@
 /* global describe, test, expect, beforeAll, afterAll */
-import * as t from 'io-ts';
-import * as E from 'fp-ts/lib/Either';
+import * as d from 'io-ts/Decoder';
+import * as E from 'fp-ts/Either';
 
-import { pipe } from 'fp-ts/lib/function';
-import { DateCodec } from '@db/codecs';
+import { pipe } from 'fp-ts/function';
+import { toNumber } from '../src/utils/index';
 import { manualFail } from './helpers';
 import { QueryResult } from '../src/db/queryBuilder';
-import { IntFromString } from 'io-ts-types';
-import { AggregateError } from '@utils/index';
+import { DateDecoder } from '../src/lib/decoders';
+import { AggregateError } from '../src/lib/AggregateError';
 import { v4 as randomUUID } from 'uuid';
-import { GroupCodec, RowType, TaskCodec } from '@db/schema';
+import { GroupDecoder, RowType, TaskDecoder } from '@db/schema';
 import {
   DbQuery,
   closeDbConnection,
@@ -37,15 +37,16 @@ describe('Tests for query builder tests', () => {
 
   beforeAll(async () => {
     groupID = randomUUID();
+
     nonReturningQuery = await dbQuery(
       `INSERT INTO groups(group_id, title, description) VALUES($1, $2, $3)`
-    )([groupID, 'Tech todos', 'Tech todos for my stuff'])(GroupCodec)();
+    )([groupID, 'Tech todos', 'Tech todos for my stuff'])(GroupDecoder)();
 
     const createTasks = (taskID: string, taskName: string) =>
       dbQuery(`INSERT INTO tasks(group_id, task_id, name) VALUES($1, $2, $3)`)([
         groupID,
         ...[taskID, taskName],
-      ])(TaskCodec)();
+      ])(TaskDecoder)();
 
     await Promise.all([
       createTasks(randomUUID(), 'Buy Razer Laptop'),
@@ -58,12 +59,13 @@ describe('Tests for query builder tests', () => {
     // Act
     const returningQuery = await dbQuery(`SELECT * FROM groups WHERE group_id = $1`)([
       groupID,
-    ])(GroupCodec)();
+    ])(GroupDecoder)();
 
-    const countCodec = t.type({ count: IntFromString });
+    const countDecoder = d.struct({ count: pipe(d.string, d.map(toNumber)) });
+
     const returningQueryTwo = await dbQuery(
       `SELECT COUNT(*) FROM tasks WHERE group_id = $1`
-    )([groupID])(countCodec)();
+    )([groupID])(countDecoder)();
 
     // Assert
     expect(E.isRight(nonReturningQuery)).toBeTruthy();
@@ -86,20 +88,19 @@ describe('Tests for query builder tests', () => {
     );
   });
 
-  test('Should check that query returns correct results for relatively complex queries', async () => {
+  test('Should check that query returns correct results for relatively complex queries like JOINS', async () => {
     // Arrange
-    const ComplexQueryCodec = t.type({
-      grp_creation_date: DateCodec,
-      last_grp_update_time: DateCodec,
+    const ComplexQueryCodec = d.struct({
+      grp_creation_date: DateDecoder,
+      last_grp_update_time: DateDecoder,
     });
 
     // Act
     const complexQueryResult = await dbQuery(
       `SELECT *, g.created_at AS grp_creation_date, g.updated_at AS last_grp_update_time FROM tasks JOIN groups AS g USING(group_id) WHERE g.group_id = $1`
-    )([groupID])(t.intersection([TaskCodec, ComplexQueryCodec]))();
+    )([groupID])(d.intersect(TaskDecoder)(ComplexQueryCodec))();
 
     // Assert
-
     expect(E.isRight(complexQueryResult)).toBeTruthy();
 
     pipe(
@@ -115,7 +116,7 @@ describe('Tests for query builder tests', () => {
       // Act
       const possibleQueryResult = await dbQuery(
         `SELECT * FROM groups WHERE group_id = $1`
-      )([badGroupId])(GroupCodec)();
+      )([badGroupId])(GroupDecoder)();
 
       // Assert
       expect(E.isLeft(possibleQueryResult)).toBeTruthy();
