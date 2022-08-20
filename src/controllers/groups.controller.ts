@@ -1,15 +1,12 @@
+import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
 import * as TE from 'fp-ts/lib/TaskEither';
 
-import { flow, pipe } from 'fp-ts/lib/function';
 import { traverse } from 'fp-ts/lib/Array';
-import { empty as sMempty } from 'fp-ts/lib/string';
+import { flow, pipe } from 'fp-ts/lib/function';
+import { ToRecordOfOptions } from '../types';
 import { Request, ResponseToolkit } from '@hapi/hapi';
-import {
-  GroupID,
-  GroupCreationAttributes,
-  NonNullGroupCreationAttributes,
-} from '../db/schema';
+import { GroupID, GroupCreationAttributes } from '../db/schema';
 import {
   getGroupRecordById,
   getAllGroupRecords,
@@ -112,9 +109,9 @@ export async function updateGroup(
 ) {
   const { groupId } = req.params;
 
-  const nonNullGroupCreationAttributes: NonNullGroupCreationAttributes = {
-    title: req.payload.title ?? sMempty,
-    description: req.payload.description ?? sMempty,
+  const nonNullGroupCreationAttributes: ToRecordOfOptions<GroupCreationAttributes> = {
+    title: O.fromNullable(req.payload.title),
+    description: O.fromNullable(req.payload.description),
   };
 
   const queryResults = await pipe(

@@ -1,126 +1,176 @@
-import { QueryParams } from '../db/queryBuilder';
-import * as S from 'fp-ts/lib/string';
+import * as O from 'fp-ts/lib/Option';
 import * as IO from 'fp-ts/lib/IO';
 import * as TE from 'fp-ts/lib/TaskEither';
 import * as NEA from 'fp-ts/lib/NonEmptyArray';
 
+import { last } from 'fp-ts/lib/Semigroup';
 import { pipe } from 'fp-ts/lib/function';
 import { UUIDDecoder } from '../lib/decoders';
+import { QueryParams } from '../db/queryBuilder';
 import { struct, union } from 'io-ts/lib/Decoder';
 import { dbQueryClient } from '../db/index';
+import { ToRecordOfOptions } from '../types';
 import { id, randomUUID, trace } from '../utils/index';
-import { struct as monoidStruct } from 'fp-ts/lib/Monoid';
-import { RemoveNullFromPropUnion } from '../types';
 import { AggregateError, updateAggregateError } from '../lib/AggregateError';
 import {
+  Group,
+  GroupID,
   TaskDecoder,
   GroupDecoder,
   GroupCreationAttributes,
-  GroupID,
 } from '../db/schema';
 
 export function createNewGroupRecord(groupCreationAttributes: GroupCreationAttributes) {
   const { title, description } = groupCreationAttributes;
 
-  const createGroupQuery = (groupId: GroupID) =>
+  const queryToCreateGroupRecord = (groupId: GroupID) =>
     dbQueryClient(
       `INSERT INTO groups(group_id, title, description) VALUES($1, $2, $3) RETURNING *`
     )([groupId, title, description])(GroupDecoder);
 
-  const onError = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = generateGeneralQueryErrorMessage(
     `An error occurred while attempting to perform this query`
   );
 
   return pipe(
     randomUUID,
     trace(),
-    IO.map(createGroupQuery),
+    IO.map(queryToCreateGroupRecord),
     TE.fromIO,
     TE.chain(id),
-    TE.bimap(onError, getOnlyResultInArr)
+    TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
   );
 }
 
 export function getGroupRecordById(groupId: GroupID) {
-  const getGroupRecordByIdQuery = dbQueryClient(
+  const queryToGetGroupRecordById = dbQueryClient(
     `SELECT * FROM groups WHERE group_id = $1`
   )([groupId])(GroupDecoder);
 
-  const onError = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = generateGeneralQueryErrorMessage(
     'An error occurred while attempting to retrieve information about this group'
   );
 
-  return pipe(getGroupRecordByIdQuery, TE.bimap(onError, getOnlyResultInArr));
+  return pipe(
+    queryToGetGroupRecordById,
+    TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
+  );
 }
 
-export function getTasksForGroupByGroupId(columnsToRetrieve: '*' | 'task_id') {
-  const targetQuery = dbQueryClient(`SELECT $1 FROM tasks WHERE group_id = $2`);
-  const onError = generateGeneralQueryErrorMessage(
+export function getTasksRelatedToGroupRecordByGroupId(
+  taskColumnsToRetrieve: '*' | 'task_id'
+) {
+  const queryForTasksRelatedToGroupRecordById = dbQueryClient(
+    `SELECT $1 FROM tasks WHERE group_id = $2`
+  );
+
+  const augmentQueryErr = generateGeneralQueryErrorMessage(
     'An error occurred while attempting to retrieve the tasks for this group'
   );
 
   return (groupId: GroupID) => {
-    const TaskIdOnlyDecoder = struct({ task_id: UUIDDecoder });
-    const QueryDecoder = union(TaskDecoder, TaskIdOnlyDecoder);
-    const query = targetQuery([columnsToRetrieve, groupId])<typeof QueryDecoder>(
-      QueryDecoder
-    );
+    const DecoderForTaskIdRecord = struct({ task_id: UUIDDecoder });
+    const QueryDecoder = union(TaskDecoder, DecoderForTaskIdRecord);
 
-    return pipe(query, TE.bimap(onError, id));
+    const queryToPerform = queryForTasksRelatedToGroupRecordById([
+      taskColumnsToRetrieve,
+      groupId,
+    ])(QueryDecoder);
+
+    return pipe(queryToPerform, TE.mapLeft(augmentQueryErr));
   };
 }
-export const getTaskIdsForGroupByGroupId = getTasksForGroupByGroupId('task_id');
-export const getTaskObjsForGroupByGroupId = getTasksForGroupByGroupId('*');
 
+// ENHANCEMENT: Add pagination and sorting here
 export function getAllGroupRecords() {
-  const targetQuery = dbQueryClient(`SELECT * FROM groups`)()(GroupDecoder);
-  const onError = generateGeneralQueryErrorMessage(
+  const queryForAllGroupRecordsInDb =
+    dbQueryClient(`SELECT * FROM groups`)()(GroupDecoder);
+
+  const augmentQueryErr = generateGeneralQueryErrorMessage(
     'An error occurred while attempting to retrieve all record in the groups table'
   );
 
-  return pipe(targetQuery, TE.bimap(onError, id));
+  return pipe(queryForAllGroupRecordsInDb, TE.mapLeft(augmentQueryErr));
 }
 
 export function updateGroupRecordById(
-  updatedGroupRecordData: RemoveNullFromPropUnion<GroupCreationAttributes>
+  updatedGroupAttributes: ToRecordOfOptions<GroupCreationAttributes>
 ) {
-  const targetQuery = (queryParams: QueryParams) =>
+  const queryToUpdateGroupRecordById = (queryParams: QueryParams) =>
     dbQueryClient(
       `UPDATE groups SET title = $1, description = $2 WHERE group_id = $3 RETURNING *`
     )(queryParams)(GroupDecoder);
 
-  const groupCreationAttributesMonoid = monoidStruct({
-    title: S.Monoid,
-    description: S.Monoid,
-  });
+  const monoidGroupCreationAttributesUpdate = O.getMonoid<string>(last<string>());
+
+  const augmentQueryErr = generateGeneralQueryErrorMessage(
+    'An error occurred while attempting to update this group'
+  );
 
   return (groupId: GroupID) => {
-    const originalRecord = pipe(
-      getGroupRecordById(groupId),
-      TE.map(record => ({ ...record, description: record.description ?? S.empty })),
-      TE.map(r => groupCreationAttributesMonoid.concat(r, updatedGroupRecordData))
+    const targetGroupRecordInItsOriginalState = getGroupRecordById(groupId);
+
+    const updatedTargetGroupRecord = pipe(
+      targetGroupRecordInItsOriginalState,
+      TE.map(originalState => ({
+        title: O.some(originalState.title),
+        description: O.fromNullable(originalState.description),
+      })),
+
+      TE.map(normalizedRecord => ({
+        newTitle: monoidGroupCreationAttributesUpdate.concat(
+          normalizedRecord.title, // this will always be a string
+          updatedGroupAttributes.title
+        ) as O.Some<string>,
+
+        newDescription: monoidGroupCreationAttributesUpdate.concat(
+          normalizedRecord.description,
+          updatedGroupAttributes.description
+        ),
+      }))
     );
 
     return pipe(
-      originalRecord,
-      TE.chain(f =>
-        targetQuery([f.title, S.isEmpty(f.description) ? null : f.description])
+      updatedTargetGroupRecord,
+
+      TE.chain(updatedGroupRecordAttributes =>
+        queryToUpdateGroupRecordById([
+          updatedGroupRecordAttributes.newTitle.value,
+          pipe(
+            updatedGroupRecordAttributes.newDescription,
+            O.getOrElseW(() => null)
+          ),
+        ])
       ),
-      TE.map(getOnlyResultInArr)
+
+      TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
     );
   };
 }
 
 export function deleteGroupRecordById(groupId: GroupID) {
-  const targetQuery = dbQueryClient(`DELETE FROM groups WHERE group_id = $1 RETURNING *`)([groupId])(
-    GroupDecoder
-  );
+  const queryToDeleteGroupRecordById = dbQueryClient(
+    `DELETE FROM groups WHERE group_id = $1 RETURNING *`
+  )([groupId])(GroupDecoder);
 
-  const onError = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = generateGeneralQueryErrorMessage(
     'An error occurred while attempting to retrieve all record in the groups table'
   );
 
-  return pipe(targetQuery, TE.bimap(onError, getOnlyResultInArr));
+  return pipe(
+    queryToDeleteGroupRecordById,
+    TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
+  );
+}
+
+export function includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly: boolean) {
+  return (groupData: Group) =>
+    pipe(
+      getTasksRelatedToGroupRecordByGroupId(idsOnly ? 'task_id' : '*')(
+        groupData.group_id
+      ),
+      TE.map(tasks => ({ ...groupData, tasks }))
+    );
 }
 
 function generateGeneralQueryErrorMessage(errorMessage?: string) {
@@ -130,6 +180,6 @@ function generateGeneralQueryErrorMessage(errorMessage?: string) {
     );
 }
 
-function getOnlyResultInArr<RT extends unknown>(resultArr: RT[]) {
+function getOnlyResultInQueryResultArr<RT extends unknown>(resultArr: RT[]) {
   return pipe(resultArr as NEA.NonEmptyArray<RT>, NEA.head);
 }
