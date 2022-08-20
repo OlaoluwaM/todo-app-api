@@ -109,7 +109,7 @@ describe('Tests for query builder tests', () => {
     );
   });
 
-  test.each([['dwefwef'], [0]])(
+  test.each([['dwefwef'], [0], [toUUID(randomUuidLikeString())]])(
     'Should check that query builder handles errors appropriately',
     async badGroupId => {
       // Arrange

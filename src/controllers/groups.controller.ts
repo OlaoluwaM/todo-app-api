@@ -2,9 +2,10 @@ import * as O from 'fp-ts/lib/Option';
 import * as E from 'fp-ts/lib/Either';
 import * as TE from 'fp-ts/lib/TaskEither';
 
+import { pipe } from 'fp-ts/lib/function';
 import { traverse } from 'fp-ts/lib/Array';
-import { flow, pipe } from 'fp-ts/lib/function';
 import { ToRecordOfOptions } from '../types';
+import { generateErrorHandler } from '../utils/helpers';
 import { Request, ResponseToolkit } from '@hapi/hapi';
 import { GroupID, GroupCreationAttributes } from '../db/schema';
 import {
@@ -42,7 +43,10 @@ export async function createGroup(
   return pipe(
     queryResults,
     E.fold(
-      err => responseHandler.response(`Internal server Error: ${err.message}`).code(500),
+      err =>
+        responseHandler
+          .response({ err: `Internal server Error: ${err.message}` })
+          .code(500),
       groupData => responseHandler.response(groupData).code(201)
     )
   );
@@ -67,8 +71,11 @@ export async function getAllGroups(
   return pipe(
     queryResult,
     E.fold(
-      err => responseHandler.response(`Internal server Error: ${err.message}`).code(500),
-      groupData => responseHandler.response(groupData).code(200)
+      err =>
+        responseHandler
+          .response({ err: `Internal server Error: ${err.message}` })
+          .code(500),
+      groupData => responseHandler.response({ res: groupData }).code(200)
     )
   );
 }
@@ -80,6 +87,7 @@ export async function getSingleGroup(
   const { groupId } = request.params;
   const { withTasks, idsOnly } = request.query;
 
+  const errorHandler = generateErrorHandler(responseHandler);
   const includeTasks = includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly);
 
   const queryForSingleGroupRecord = pipe(groupId, getGroupRecordById);
@@ -96,9 +104,8 @@ export async function getSingleGroup(
 
   return pipe(
     queryResults,
-    E.fold(
-      err => responseHandler.response(`Internal server Error: ${err.message}`).code(500),
-      groupData => responseHandler.response(groupData).code(201)
+    E.fold(errorHandler, groupData =>
+      responseHandler.response({ res: groupData }).code(201)
     )
   );
 }
@@ -108,22 +115,22 @@ export async function updateGroup(
   responseHandler: ResponseToolkit
 ) {
   const { groupId } = req.params;
+  const errorHandler = generateErrorHandler(responseHandler);
 
-  const nonNullGroupCreationAttributes: ToRecordOfOptions<GroupCreationAttributes> = {
+  const optionGroupCreationAttributes: ToRecordOfOptions<GroupCreationAttributes> = {
     title: O.fromNullable(req.payload.title),
     description: O.fromNullable(req.payload.description),
   };
 
   const queryResults = await pipe(
     groupId,
-    updateGroupRecordById(nonNullGroupCreationAttributes)
+    updateGroupRecordById(optionGroupCreationAttributes)
   )();
 
   return pipe(
     queryResults,
-    E.fold(
-      err => responseHandler.response(`Internal server Error: ${err.message}`).code(500),
-      groupData => responseHandler.response(groupData).code(201)
+    E.fold(errorHandler, groupData =>
+      responseHandler.response({ res: groupData }).code(201)
     )
   );
 }
@@ -133,32 +140,21 @@ export async function deleteGroup(
   responseHandler: ResponseToolkit
 ) {
   const { groupId } = req.params;
+  const errorHandler = generateErrorHandler(responseHandler);
+
   const doesTargetGroupExist = getGroupRecordById(groupId);
 
   const queryToPerform = pipe(
     doesTargetGroupExist,
-    TE.mapLeft(() => E.right('Already deleted') as E.Right<string>),
-
-    TE.chainW(
-      flow(
-        () => deleteGroupRecordById(groupId),
-        TE.mapLeft(e => E.left(e.message) as E.Left<string>)
-      )
-    )
+    TE.chainW(() => deleteGroupRecordById(groupId))
   );
 
   const queryResults = await queryToPerform();
 
   return pipe(
     queryResults,
-    E.fold(
-      pipe(
-        E.match(
-          queryErrMsg => responseHandler.response(queryErrMsg).code(500),
-          nothingToDelMsg => responseHandler.response(nothingToDelMsg).code(202)
-        )
-      ),
-      () => responseHandler.response('Resource deleted successfully').code(200)
+    E.fold(errorHandler, () =>
+      responseHandler.response({ res: 'Resource deleted successfully' }).code(200)
     )
   );
 }

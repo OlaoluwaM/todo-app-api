@@ -5,13 +5,13 @@ import * as NEA from 'fp-ts/lib/NonEmptyArray';
 
 import { last } from 'fp-ts/lib/Semigroup';
 import { pipe } from 'fp-ts/lib/function';
+import { addError } from '../lib/AggregateError';
 import { UUIDDecoder } from '../lib/decoders';
-import { QueryParams } from '../db/queryBuilder';
 import { struct, union } from 'io-ts/lib/Decoder';
 import { dbQueryClient } from '../db/index';
 import { ToRecordOfOptions } from '../types';
 import { id, randomUUID, trace } from '../utils/index';
-import { AggregateError, updateAggregateError } from '../lib/AggregateError';
+import { struct as monoidStruct } from 'fp-ts/lib/Monoid';
 import {
   Group,
   GroupID,
@@ -28,7 +28,7 @@ export function createNewGroupRecord(groupCreationAttributes: GroupCreationAttri
       `INSERT INTO groups(group_id, title, description) VALUES($1, $2, $3) RETURNING *`
     )([groupId, title, description])(GroupDecoder);
 
-  const augmentQueryErr = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = addError(
     `An error occurred while attempting to perform this query`
   );
 
@@ -47,12 +47,13 @@ export function getGroupRecordById(groupId: GroupID) {
     `SELECT * FROM groups WHERE group_id = $1`
   )([groupId])(GroupDecoder);
 
-  const augmentQueryErr = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = addError(
     'An error occurred while attempting to retrieve information about this group'
   );
 
   return pipe(
     queryToGetGroupRecordById,
+    TE.mapLeft(addError('Target group was not found')),
     TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
   );
 }
@@ -64,7 +65,7 @@ export function getTasksRelatedToGroupRecordByGroupId(
     `SELECT $1 FROM tasks WHERE group_id = $2`
   );
 
-  const augmentQueryErr = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = addError(
     'An error occurred while attempting to retrieve the tasks for this group'
   );
 
@@ -86,7 +87,7 @@ export function getAllGroupRecords() {
   const queryForAllGroupRecordsInDb =
     dbQueryClient(`SELECT * FROM groups`)()(GroupDecoder);
 
-  const augmentQueryErr = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = addError(
     'An error occurred while attempting to retrieve all record in the groups table'
   );
 
@@ -96,14 +97,19 @@ export function getAllGroupRecords() {
 export function updateGroupRecordById(
   updatedGroupAttributes: ToRecordOfOptions<GroupCreationAttributes>
 ) {
-  const queryToUpdateGroupRecordById = (queryParams: QueryParams) =>
+  const queryToUpdateGroupRecordById = (queryParams: [string, string | null, GroupID]) =>
     dbQueryClient(
       `UPDATE groups SET title = $1, description = $2 WHERE group_id = $3 RETURNING *`
     )(queryParams)(GroupDecoder);
 
-  const monoidGroupCreationAttributesUpdate = O.getMonoid<string>(last<string>());
+  const monoidGroupCreationAttributesUpdate = monoidStruct<typeof updatedGroupAttributes>(
+    {
+      title: O.getMonoid<string>(last<string>()),
+      description: O.getMonoid<string>(last<string>()),
+    }
+  );
 
-  const augmentQueryErr = generateGeneralQueryErrorMessage(
+  const augmentQueryErr = addError(
     'An error occurred while attempting to update this group'
   );
 
@@ -112,22 +118,18 @@ export function updateGroupRecordById(
 
     const updatedTargetGroupRecord = pipe(
       targetGroupRecordInItsOriginalState,
+
       TE.map(originalState => ({
         title: O.some(originalState.title),
         description: O.fromNullable(originalState.description),
       })),
 
-      TE.map(normalizedRecord => ({
-        newTitle: monoidGroupCreationAttributesUpdate.concat(
-          normalizedRecord.title, // this will always be a string
-          updatedGroupAttributes.title
-        ) as O.Some<string>,
-
-        newDescription: monoidGroupCreationAttributesUpdate.concat(
-          normalizedRecord.description,
-          updatedGroupAttributes.description
-        ),
-      }))
+      TE.map(normalizedRecord =>
+        monoidGroupCreationAttributesUpdate.concat(
+          normalizedRecord,
+          updatedGroupAttributes
+        )
+      )
     );
 
     return pipe(
@@ -135,11 +137,14 @@ export function updateGroupRecordById(
 
       TE.chain(updatedGroupRecordAttributes =>
         queryToUpdateGroupRecordById([
-          updatedGroupRecordAttributes.newTitle.value,
+          (updatedGroupRecordAttributes.title as O.Some<string>).value,
+
           pipe(
-            updatedGroupRecordAttributes.newDescription,
+            updatedGroupRecordAttributes.description,
             O.getOrElseW(() => null)
           ),
+
+          groupId,
         ])
       ),
 
@@ -153,8 +158,8 @@ export function deleteGroupRecordById(groupId: GroupID) {
     `DELETE FROM groups WHERE group_id = $1 RETURNING *`
   )([groupId])(GroupDecoder);
 
-  const augmentQueryErr = generateGeneralQueryErrorMessage(
-    'An error occurred while attempting to retrieve all record in the groups table'
+  const augmentQueryErr = addError(
+    'An error occurred while attempting to delete group record'
   );
 
   return pipe(
@@ -170,13 +175,6 @@ export function includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly: boole
         groupData.group_id
       ),
       TE.map(tasks => ({ ...groupData, tasks }))
-    );
-}
-
-function generateGeneralQueryErrorMessage(errorMessage?: string) {
-  return (aggregateErrorInstance: AggregateError) =>
-    updateAggregateError(aggregateErrorInstance)(
-      errorMessage ?? `An error occurred while attempting to perform this query`
     );
 }
 

@@ -89,7 +89,7 @@ function getRouteObjects(): ServerRoute[] {
       handler: createGroup,
       options: {
         validate: {
-          payload: groupApiRequestValidationFor.payload,
+          payload: Joi.object(groupApiRequestValidationFor.payload),
           failAction: returnRawErrors,
         },
       },

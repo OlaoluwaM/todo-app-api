@@ -1,12 +1,14 @@
 import { isString } from 'fp-ts/lib/string';
+import { BaseError } from '../../utils/constants';
 import { join, uniq } from 'ramda';
 
+type Messages = [BaseError, ...string[]];
 export class AggregateError extends Error {
-  #messages: string[] = [];
+  #messages: Messages;
 
-  constructor(messages: string[] | string) {
+  constructor(initialMessage: BaseError) {
     super();
-    this.addError(messages);
+    this.#messages = [initialMessage];
   }
 
   get aggregatedMessages() {
@@ -15,18 +17,20 @@ export class AggregateError extends Error {
 
   addError(messages: string[] | string) {
     const separateByComma = join(', ');
-    const newMessagesToAdd: string[] = isString(messages) ? [messages] : messages;
+    const newMessagesToAdd = isString(messages) ? [messages] : messages;
 
-    this.#messages = uniq(this.#messages.concat(newMessagesToAdd));
+    this.#messages = uniq(this.#messages.concat(newMessagesToAdd)) as Messages;
     this.message = `The following errors occurred: ${separateByComma(this.#messages)}`;
-    return this
+
+    return this;
   }
 }
 
-export function updateAggregateError(errorInstance: AggregateError) {
-  return (message: string | string[]) => errorInstance.addError(message);
+export function newAggregateError(initialMessage: BaseError) {
+  return new AggregateError(initialMessage);
 }
 
-export function newAggregateError(messages: string | string[]) {
-  return new AggregateError(messages);
+export function addError(message: string | string[]) {
+  return (aggregateErrorInstance: AggregateError) =>
+    aggregateErrorInstance.addError(message);
 }
