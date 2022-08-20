@@ -1,4 +1,4 @@
-// Duplicated to avoid cyclic dependency and to keep this module relatively orthogonal
+// NOTE: Duplicated to avoid cyclic dependency and to keep this module relatively orthogonal
 type RawTypes =
   | 'function'
   | 'object'

@@ -1,5 +1,6 @@
 import * as d from 'io-ts/lib/Decoder';
 
+import { StripNullFromProps } from '../types';
 import { DateDecoder, UUIDDecoder } from '../lib/decoders';
 
 export const GroupDecoder = d.struct({
@@ -13,6 +14,7 @@ export const GroupDecoder = d.struct({
 export type Group = d.TypeOf<typeof GroupDecoder>;
 export type GroupID = Pick<Group, 'group_id'>['group_id'];
 export type GroupCreationAttributes = Pick<Group, 'title' | 'description'>;
+export type NonNullGroupCreationAttributes = StripNullFromProps<GroupCreationAttributes>;
 
 export const TaskDecoder = d.struct({
   task_id: UUIDDecoder,

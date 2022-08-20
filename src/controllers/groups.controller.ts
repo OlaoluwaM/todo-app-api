@@ -4,30 +4,43 @@ import * as TE from 'fp-ts/lib/TaskEither';
 import { flow, pipe } from 'fp-ts/lib/function';
 import { traverse } from 'fp-ts/lib/Array';
 import { empty as sMempty } from 'fp-ts/lib/string';
-import { RemoveNullFromPropUnion } from '../types';
 import { Request, ResponseToolkit } from '@hapi/hapi';
-import { GroupCreationAttributes, Group, GroupID } from '../db/schema';
+import {
+  GroupID,
+  GroupCreationAttributes,
+  NonNullGroupCreationAttributes,
+} from '../db/schema';
 import {
   getGroupRecordById,
   getAllGroupRecords,
   createNewGroupRecord,
-  getTasksForGroupByGroupId,
   updateGroupRecordById,
   deleteGroupRecordById,
+  includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord,
 } from '../services/groups.service';
-import { unit } from '@utils/index';
-import { newAggregateError } from '@lib/AggregateError';
+
+interface RequestWithPayload extends Request {
+  payload: GroupCreationAttributes & Request['payload'];
+}
+
+interface RequestWithQueryStr extends Request {
+  query: { withTasks: boolean; idsOnly: boolean } & Request['query'];
+}
+
+interface RequestWithUrlParams extends Request {
+  params: { groupId: GroupID } & Request['params'];
+}
 
 export async function createGroup(
-  req: Request & { payload: GroupCreationAttributes },
+  req: RequestWithPayload,
   responseHandler: ResponseToolkit
 ) {
-  const incomingReqData = {
+  const groupCreationAttributes = {
     title: req.payload.title,
     description: req.payload.description ?? null,
   };
 
-  const queryResults = await pipe(incomingReqData, createNewGroupRecord)();
+  const queryResults = await pipe(groupCreationAttributes, createNewGroupRecord)();
 
   return pipe(
     queryResults,
@@ -39,21 +52,19 @@ export async function createGroup(
 }
 
 export async function getAllGroups(
-  request: Request & {
-    query: { withTasks: boolean; idsOnly: boolean };
-  },
+  request: RequestWithQueryStr,
   responseHandler: ResponseToolkit
 ) {
   const { withTasks, idsOnly } = request.query;
 
   const queryForAllGroups = getAllGroupRecords();
   const includeTasks = traverse(TE.ApplicativePar)(
-    includeTasksObjsOrTaskIdsInGroup(idsOnly)
+    includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly)
   );
 
   const queryForAllGroupsWithTheirTasks = pipe(queryForAllGroups, TE.chain(includeTasks));
-
   const queryToPerform = withTasks ? queryForAllGroupsWithTheirTasks : queryForAllGroups;
+
   const queryResult = await queryToPerform();
 
   return pipe(
@@ -66,26 +77,23 @@ export async function getAllGroups(
 }
 
 export async function getSingleGroup(
-  request: Request & {
-    params: { groupId: GroupID };
-    query: { withTasks: boolean; idsOnly: boolean };
-  },
+  request: RequestWithUrlParams & RequestWithQueryStr,
   responseHandler: ResponseToolkit
 ) {
   const { groupId } = request.params;
   const { withTasks, idsOnly } = request.query;
 
-  const includeTasks = includeTasksObjsOrTaskIdsInGroup(idsOnly);
+  const includeTasks = includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly);
 
-  const queryForGroupRecord = pipe(groupId, getGroupRecordById);
-  const queryForGroupRecordWithItsTasks = pipe(
-    queryForGroupRecord,
+  const queryForSingleGroupRecord = pipe(groupId, getGroupRecordById);
+  const queryForSingleGroupRecordWithItsTasks = pipe(
+    queryForSingleGroupRecord,
     TE.chain(includeTasks)
   );
 
   const queryToPerform = withTasks
-    ? queryForGroupRecordWithItsTasks
-    : queryForGroupRecord;
+    ? queryForSingleGroupRecordWithItsTasks
+    : queryForSingleGroupRecord;
 
   const queryResults = await queryToPerform();
 
@@ -99,16 +107,20 @@ export async function getSingleGroup(
 }
 
 export async function updateGroup(
-  req: Request & { params: { groupId: GroupID }; payload: GroupCreationAttributes },
+  req: RequestWithUrlParams & RequestWithPayload,
   responseHandler: ResponseToolkit
 ) {
   const { groupId } = req.params;
-  const reqPayload: RemoveNullFromPropUnion<GroupCreationAttributes> = {
+
+  const nonNullGroupCreationAttributes: NonNullGroupCreationAttributes = {
     title: req.payload.title ?? sMempty,
     description: req.payload.description ?? sMempty,
   };
 
-  const queryResults = await pipe(groupId, updateGroupRecordById(reqPayload))();
+  const queryResults = await pipe(
+    groupId,
+    updateGroupRecordById(nonNullGroupCreationAttributes)
+  )();
 
   return pipe(
     queryResults,
@@ -120,14 +132,16 @@ export async function updateGroup(
 }
 
 export async function deleteGroup(
-  req: Request & { params: { groupId: GroupID } },
+  req: RequestWithUrlParams,
   responseHandler: ResponseToolkit
 ) {
   const { groupId } = req.params;
+  const doesTargetGroupExist = getGroupRecordById(groupId);
 
   const queryToPerform = pipe(
-    getGroupRecordById(groupId),
+    doesTargetGroupExist,
     TE.mapLeft(() => E.right('Already deleted') as E.Right<string>),
+
     TE.chainW(
       flow(
         () => deleteGroupRecordById(groupId),
@@ -143,20 +157,11 @@ export async function deleteGroup(
     E.fold(
       pipe(
         E.match(
-          msg => responseHandler.response(msg).code(500),
-          msg => responseHandler.response(msg).code(202)
+          queryErrMsg => responseHandler.response(queryErrMsg).code(500),
+          nothingToDelMsg => responseHandler.response(nothingToDelMsg).code(202)
         )
       ),
       () => responseHandler.response('Resource deleted successfully').code(200)
     )
   );
-}
-
-// TODO: I think this should be moved into the groups service
-function includeTasksObjsOrTaskIdsInGroup(idsOnly: boolean) {
-  return (groupData: Group) =>
-    pipe(
-      getTasksForGroupByGroupId(idsOnly ? 'task_id' : '*')(groupData.group_id),
-      TE.map(tasks => ({ ...groupData, tasks }))
-    );
 }
