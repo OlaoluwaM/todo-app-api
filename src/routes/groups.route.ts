@@ -8,8 +8,14 @@ import { pipe } from 'fp-ts/lib/function';
 import { prefixStr } from '../utils/index';
 import { lensProp, over } from 'ramda';
 import { dummyRouteHandler } from '../utils/helpers';
-import { createGroup, getInfoOnSingleGroup } from '../controllers/groups.controller';
 import { Lifecycle, RouteOptionsValidate, ServerRoute } from '@hapi/hapi';
+import {
+  createGroup,
+  deleteGroup,
+  getAllGroups,
+  getSingleGroup,
+  updateGroup,
+} from '../controllers/groups.controller';
 
 const ROUTE_PREFIX = '/groups';
 const prependRoutePrefix = prefixStr(ROUTE_PREFIX);
@@ -31,9 +37,20 @@ const groupIdValidationObj: Pick<RouteOptionsValidate, 'params' | 'failAction'> 
   failAction: T.of(Boom.badRequest('groupId should be a valid UUID string')),
 };
 
-const groupRecordSchema = Joi.object({
+const groupRecordSchema = {
   title: Joi.string().min(4).required(),
   description: Joi.string().optional().min(4),
+};
+
+const getEndpointQueryStrValidations = Joi.object({
+  withTasks: Joi.boolean().default(false),
+  idsOnly: Joi.boolean()
+    .default(false)
+    .when('withTasks', {
+      is: true,
+      then: Joi.valid(true, false),
+    })
+    .when('withTasks', { is: false, then: Joi.valid(false) }),
 });
 
 const returnRawErrors: Lifecycle.Method = async (_, __, err) => err;
@@ -43,26 +60,23 @@ function getRouteObjects(): ServerRoute[] {
     {
       path: '',
       method: 'GET',
-      handler: dummyRouteHandler,
+      handler: getAllGroups,
+      options: {
+        validate: {
+          query: getEndpointQueryStrValidations,
+          failAction: returnRawErrors,
+        },
+      },
     },
 
     {
       path: '/{groupId}',
       method: 'GET',
-      handler: getInfoOnSingleGroup,
+      handler: getSingleGroup,
       options: {
         validate: {
           params: groupIdValidationObj.params,
-          query: Joi.object({
-            withTasks: Joi.boolean().default(false),
-            idsOnly: Joi.boolean()
-              .default(false)
-              .when('withTasks', {
-                is: true,
-                then: Joi.valid(true, false),
-              })
-              .when('withTasks', { is: false, then: Joi.valid(false) }),
-          }),
+          query: getEndpointQueryStrValidations,
           failAction: returnRawErrors,
         },
       },
@@ -74,7 +88,7 @@ function getRouteObjects(): ServerRoute[] {
       handler: createGroup,
       options: {
         validate: {
-          payload: groupRecordSchema,
+          payload: Joi.object(groupRecordSchema),
           failAction: returnRawErrors,
         },
       },
@@ -83,16 +97,22 @@ function getRouteObjects(): ServerRoute[] {
     {
       path: '/{groupId}',
       method: 'PUT',
-      handler: dummyRouteHandler,
+      handler: updateGroup,
       options: {
-        validate: groupIdValidationObj,
+        validate: {
+          params: groupIdValidationObj.params,
+          payload: Joi.object(groupRecordSchema).fork(
+            Object.keys(groupRecordSchema),
+            schema => schema.optional()
+          ),
+        },
       },
     },
 
     {
       path: '/{groupId}',
       method: 'DELETE',
-      handler: dummyRouteHandler,
+      handler: deleteGroup,
       options: {
         validate: groupIdValidationObj,
       },
