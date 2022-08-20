@@ -1,9 +1,9 @@
 import * as IO from 'fp-ts/lib/IO';
 
 import { pipe } from 'fp-ts/lib/function';
-import { v4 as getUUID } from 'uuid';
-import { toUUID } from '../lib/decoders';
-import { concat, isEmpty, join, lensIndex, over } from 'ramda';
+import { toUUID, UUID } from '../lib/decoders';
+import { v4 as getUUIDLikeString } from 'uuid';
+import { compose, concat, isEmpty, join, lensIndex, over } from 'ramda';
 
 type RawTypes =
   | 'function'
@@ -54,6 +54,6 @@ export const prefixStr =
   (suffix: string): string =>
     concat(prefix, suffix);
 
-export const randomUUID = IO.of(pipe(getUUID(), toUUID));
+export const randomUUID: IO.IO<UUID> = compose(toUUID, getUUIDLikeString);
 
 export const toNumber = (value: string) => parseInt(value, 10);
