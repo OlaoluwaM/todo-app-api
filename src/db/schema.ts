@@ -1,4 +1,4 @@
-import * as d from 'io-ts/Decoder';
+import * as d from 'io-ts/lib/Decoder';
 
 import { DateDecoder, UUIDDecoder } from '../lib/decoders';
 
@@ -11,6 +11,7 @@ export const GroupDecoder = d.struct({
 });
 
 export type Group = d.TypeOf<typeof GroupDecoder>;
+export type GroupID = Pick<Group, 'group_id'>['group_id'];
 export type GroupCreationAttributes = Pick<Group, 'title' | 'description'>;
 
 export const TaskDecoder = d.struct({

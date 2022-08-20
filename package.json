@@ -11,7 +11,7 @@
     "prestart": "npm run build",
     "start": "node ./dist/server.js",
     "predev": "npm run compose:restart:db",
-    "dev": "nodemon src/server.ts",
+    "dev": "nodemon src/index.ts",
     "test": "cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest",
     "test:setup": "npm run compose:restart:db && cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest",
     "test:single": " cross-env NODE_ENV=test NODE_OPTIONS=--experimental-vm-modules jest --testPathPattern --",
@@ -35,6 +35,7 @@
     "@types/eslint-config-prettier": "^6.11.0",
     "@types/hapi__hapi": "^20.0.12",
     "@types/jest": "^28.1.7",
+    "@types/joi": "^17.2.3",
     "@types/node": "^18.7.5",
     "@types/node-notifier": "^8.0.2",
     "@types/nodemon": "^1.19.2",
@@ -61,11 +62,13 @@
     "typescript": "^4.7.4"
   },
   "dependencies": {
+    "@hapi/boom": "^10.0.0",
     "@hapi/hapi": "^20.2.2",
     "dotenv": "^16.0.1",
     "fp-ts": "^2.12.2",
     "io-ts": "^2.2.17",
-    "io-ts-types": "^0.5.16",
+    "joi": "^17.6.0",
+    "newtype-ts": "^0.3.5",
     "pg": "^8.7.3",
     "ramda": "^0.28.0",
     "uuid": "^8.3.2"

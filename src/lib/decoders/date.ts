@@ -1,6 +1,6 @@
 import { Either } from 'fp-ts/lib/Either';
-import { rawTypeOf } from '../../utils/index';
-import { Decoder, DecodeError, success, failure } from 'io-ts/Decoder';
+import { rawTypeOf } from './utils';
+import { Decoder, DecodeError, success, failure } from 'io-ts/lib/Decoder';
 
 export const DateDecoder: Decoder<unknown, Date> = {
   decode: decodeToDate,

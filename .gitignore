@@ -131,3 +131,4 @@ dist
 
 # Custom Additions
 src/db/schema-auto.ts
+sample-payloads/
