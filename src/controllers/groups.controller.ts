@@ -45,7 +45,7 @@ export async function createGroup(
     E.fold(
       err =>
         responseHandler
-          .response({ err: `Internal server Error: ${err.message}` })
+          .response({ err: `Internal server Error. ${err.message}` })
           .code(500),
       groupData => responseHandler.response(groupData).code(201)
     )
@@ -63,7 +63,10 @@ export async function getAllGroups(
     includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly)
   );
 
-  const queryForAllGroupsWithTheirTasks = pipe(queryForAllGroups, TE.chain(includeTasks));
+  const queryForAllGroupsWithTheirTasks = pipe(
+    queryForAllGroups,
+    TE.chainW(includeTasks)
+  );
   const queryToPerform = withTasks ? queryForAllGroupsWithTheirTasks : queryForAllGroups;
 
   const queryResult = await queryToPerform();
@@ -73,9 +76,9 @@ export async function getAllGroups(
     E.fold(
       err =>
         responseHandler
-          .response({ err: `Internal server Error: ${err.message}` })
+          .response({ err: `Internal server Error. ${err.message}` })
           .code(500),
-      groupData => responseHandler.response({ res: groupData }).code(200)
+      groupData => responseHandler.response(groupData).code(200)
     )
   );
 }
@@ -93,7 +96,7 @@ export async function getSingleGroup(
   const queryForSingleGroupRecord = pipe(groupId, getGroupRecordById);
   const queryForSingleGroupRecordWithItsTasks = pipe(
     queryForSingleGroupRecord,
-    TE.chain(includeTasks)
+    TE.chainW(includeTasks)
   );
 
   const queryToPerform = withTasks
@@ -104,9 +107,7 @@ export async function getSingleGroup(
 
   return pipe(
     queryResults,
-    E.fold(errorHandler, groupData =>
-      responseHandler.response({ res: groupData }).code(201)
-    )
+    E.fold(errorHandler, groupData => responseHandler.response(groupData).code(201))
   );
 }
 
@@ -129,9 +130,7 @@ export async function updateGroup(
 
   return pipe(
     queryResults,
-    E.fold(errorHandler, groupData =>
-      responseHandler.response({ res: groupData }).code(201)
-    )
+    E.fold(errorHandler, groupData => responseHandler.response(groupData).code(201))
   );
 }
 
@@ -153,8 +152,6 @@ export async function deleteGroup(
 
   return pipe(
     queryResults,
-    E.fold(errorHandler, () =>
-      responseHandler.response({ res: 'Resource deleted successfully' }).code(200)
-    )
+    E.fold(errorHandler, () => responseHandler.response().code(200))
   );
 }

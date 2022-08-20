@@ -21,6 +21,6 @@ export function deriveStatusCodeFromErrorTrail(aggregateErrorInstance: Aggregate
 export function generateErrorHandler(responseHandler: ResponseToolkit) {
   return (aggregateErrorInstance: AggregateError) =>
     responseHandler
-      .response({ err: `Error Trace: ${aggregateErrorInstance.message}` })
+      .response({ err: `Error Trace. ${aggregateErrorInstance.message}` })
       .code(deriveStatusCodeFromErrorTrail(aggregateErrorInstance));
 }

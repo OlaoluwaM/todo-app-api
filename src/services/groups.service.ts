@@ -174,6 +174,7 @@ export function includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly: boole
       getTasksRelatedToGroupRecordByGroupId(idsOnly ? 'task_id' : '*')(
         groupData.group_id
       ),
+      TE.altW(() => TE.right([])),
       TE.map(tasks => ({ ...groupData, tasks }))
     );
 }
