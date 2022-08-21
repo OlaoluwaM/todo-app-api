@@ -2,9 +2,9 @@ import * as TE from 'fp-ts/lib/TaskEither';
 
 import pkg from 'pg';
 
+import { traverse } from 'fp-ts/lib/Array';
 import { BaseError } from '../utils/constants';
 import { flow, pipe } from 'fp-ts/lib/function';
-import { map, sequence } from 'fp-ts/lib/Array';
 import { Either, Applicative, mapLeft } from 'fp-ts/lib/Either';
 import { AggregateError, newAggregateError } from '../lib/AggregateError/index';
 import { DecodeError, Decoder, draw, TypeOf } from 'io-ts/lib/Decoder';
@@ -39,7 +39,7 @@ function handleErroneousQueryResults(queryResult: pkg.QueryResult<any>) {
 }
 
 function refineQueryResults<DecoderToUse extends AnyDecoder>(decoder: DecoderToUse) {
-  return flow(map(parsedQueryResult(decoder)), sequence(Applicative), TE.fromEither);
+  return flow(traverse(Applicative)(parsedQueryResult(decoder)), TE.fromEither);
 }
 
 function parsedQueryResult<DecoderToUse extends AnyDecoder>(decoder: DecoderToUse) {

@@ -17,6 +17,7 @@ import {
   TaskUpdateAttributes,
   TaskCreationAttributes,
 } from '../db/schema';
+import { compose } from 'ramda';
 
 export function createNewTaskRecordUnderGroupId(
   groupId: GroupID,
@@ -53,8 +54,10 @@ export function getTaskRecordById(taskId: TaskID) {
 
   return pipe(
     queryToGetTaskRecordById,
-    TE.mapLeft(addError('Task not found')),
-    TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
+    TE.bimap(
+      compose(augmentQueryErr, addError('Task not found')),
+      getOnlyResultInQueryResultArr
+    )
   );
 }
 

@@ -8,6 +8,7 @@ import { ToRecordOfOptions } from '../types/index';
 import { generateErrorHandler } from '../utils/helpers';
 import { GroupCreationAttributes } from '../db/schema';
 import { Request, ResponseToolkit } from '@hapi/hapi';
+import { RequestWithUrlParamGroupId } from './common';
 import {
   getGroupRecordById,
   getAllGroupRecords,
@@ -16,7 +17,6 @@ import {
   deleteGroupRecordById,
   includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord,
 } from '../services/groups.service';
-import { RequestWithUrlParamGroupId } from './common';
 
 interface RequestWithPayload extends Request {
   payload: GroupCreationAttributes & Request['payload'];
@@ -67,6 +67,7 @@ export async function getAllGroups(
     queryForAllGroups,
     TE.chainW(includeTasks)
   );
+
   const queryToPerform = withTasks ? queryForAllGroupsWithTheirTasks : queryForAllGroups;
 
   const queryResult = await queryToPerform();
@@ -138,10 +139,8 @@ export async function deleteGroup(
   const { groupId } = req.params;
   const errorHandler = generateErrorHandler(responseHandler);
 
-  const doesTargetGroupExist = getGroupRecordById(groupId);
-
   const queryToPerform = pipe(
-    doesTargetGroupExist,
+    getGroupRecordById(groupId),
     TE.chainW(() => deleteGroupRecordById(groupId))
   );
 
