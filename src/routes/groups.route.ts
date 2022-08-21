@@ -16,7 +16,7 @@ import {
 const ROUTE_PREFIX = '/groups';
 const prependRoutePrefix = prefixStr(ROUTE_PREFIX);
 
-export default function generateGroupRoutes() {
+export default function generateGroupEndpointRoutes() {
   const routes = getRouteObjects();
   return pipe(routes, map(prependRoutePrefixToPath));
 }
