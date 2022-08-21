@@ -1,18 +1,21 @@
 import * as O from 'fp-ts/lib/Option';
 import * as IO from 'fp-ts/lib/IO';
 import * as TE from 'fp-ts/lib/TaskEither';
-import * as NEA from 'fp-ts/lib/NonEmptyArray';
 
+import { map } from 'fp-ts/lib/Array';
 import { last } from 'fp-ts/lib/Semigroup';
 import { pipe } from 'fp-ts/lib/function';
-import { addError } from '../lib/AggregateError';
-import { UUIDDecoder } from '../lib/decoders';
+import { addError } from '../lib/AggregateError/index';
+import { UUIDDecoder } from '../lib/decoders/index';
 import { struct, union } from 'io-ts/lib/Decoder';
 import { dbQueryClient } from '../db/index';
-import { ToRecordOfOptions } from '../types';
-import { id, randomUUID, trace } from '../utils/index';
+import { lensProp, view } from 'ramda';
+import { id, randomUUID } from '../utils/index';
+import { ToRecordOfOptions } from '../types/index';
 import { struct as monoidStruct } from 'fp-ts/lib/Monoid';
+import { getOnlyResultInQueryResultArr } from '../utils/helpers';
 import {
+  Task,
   Group,
   GroupID,
   TaskDecoder,
@@ -29,12 +32,11 @@ export function createNewGroupRecord(groupCreationAttributes: GroupCreationAttri
     )([groupId, title, description])(GroupDecoder);
 
   const augmentQueryErr = addError(
-    `An error occurred while attempting to perform this query`
+    `An error occurred while attempting to create this group`
   );
 
   return pipe(
     randomUUID,
-    trace(),
     IO.map(queryToCreateGroupRecord),
     TE.fromIO,
     TE.chain(id),
@@ -53,17 +55,23 @@ export function getGroupRecordById(groupId: GroupID) {
 
   return pipe(
     queryToGetGroupRecordById,
-    TE.mapLeft(addError('Target group was not found')),
+    TE.mapLeft(addError('Target group not found')),
     TE.bimap(augmentQueryErr, getOnlyResultInQueryResultArr)
   );
 }
 
-export function getTasksRelatedToGroupRecordByGroupId(
-  taskColumnsToRetrieve: '*' | 'task_id'
-) {
-  const queryForTasksRelatedToGroupRecordById = dbQueryClient(
-    `SELECT $1 FROM tasks WHERE group_id = $2`
+export function getTasksRelatedToGroupRecordByGroupId(idsOnly: boolean) {
+  const queryForTaskObjsRelatedToGroupRecordById = dbQueryClient(
+    `SELECT * FROM tasks WHERE group_id = $1`
   );
+
+  const queryForTaskIdsRelatedToGroupRecordById = dbQueryClient(
+    `SELECT task_id FROM tasks WHERE group_id = $1`
+  );
+
+  const queryForTasksRelatedToGroupRecordById = idsOnly
+    ? queryForTaskIdsRelatedToGroupRecordById
+    : queryForTaskObjsRelatedToGroupRecordById;
 
   const augmentQueryErr = addError(
     'An error occurred while attempting to retrieve the tasks for this group'
@@ -73,36 +81,32 @@ export function getTasksRelatedToGroupRecordByGroupId(
     const DecoderForTaskIdRecord = struct({ task_id: UUIDDecoder });
     const QueryDecoder = union(TaskDecoder, DecoderForTaskIdRecord);
 
-    const queryToPerform = queryForTasksRelatedToGroupRecordById([
-      taskColumnsToRetrieve,
-      groupId,
-    ])(QueryDecoder);
+    const queryToPerform = queryForTasksRelatedToGroupRecordById([groupId])(QueryDecoder);
 
     return pipe(queryToPerform, TE.mapLeft(augmentQueryErr));
   };
 }
 
-// ENHANCEMENT: Add pagination and sorting here
 export function getAllGroupRecords() {
   const queryForAllGroupRecordsInDb =
     dbQueryClient(`SELECT * FROM groups`)()(GroupDecoder);
 
   const augmentQueryErr = addError(
-    'An error occurred while attempting to retrieve all record in the groups table'
+    'An error occurred while attempting to retrieve all records in the groups table'
   );
 
   return pipe(queryForAllGroupRecordsInDb, TE.mapLeft(augmentQueryErr));
 }
 
 export function updateGroupRecordById(
-  updatedGroupAttributes: ToRecordOfOptions<GroupCreationAttributes>
+  groupUpdateAttributes: ToRecordOfOptions<GroupCreationAttributes>
 ) {
   const queryToUpdateGroupRecordById = (queryParams: [string, string | null, GroupID]) =>
     dbQueryClient(
       `UPDATE groups SET title = $1, description = $2 WHERE group_id = $3 RETURNING *`
     )(queryParams)(GroupDecoder);
 
-  const monoidGroupCreationAttributesUpdate = monoidStruct<typeof updatedGroupAttributes>(
+  const monoidForGroupRecordAttributesUpdate = monoidStruct<typeof groupUpdateAttributes>(
     {
       title: O.getMonoid<string>(last<string>()),
       description: O.getMonoid<string>(last<string>()),
@@ -125,9 +129,9 @@ export function updateGroupRecordById(
       })),
 
       TE.map(normalizedRecord =>
-        monoidGroupCreationAttributesUpdate.concat(
+        monoidForGroupRecordAttributesUpdate.concat(
           normalizedRecord,
-          updatedGroupAttributes
+          groupUpdateAttributes
         )
       )
     );
@@ -171,14 +175,15 @@ export function deleteGroupRecordById(groupId: GroupID) {
 export function includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord(idsOnly: boolean) {
   return (groupData: Group) =>
     pipe(
-      getTasksRelatedToGroupRecordByGroupId(idsOnly ? 'task_id' : '*')(
-        groupData.group_id
-      ),
+      getTasksRelatedToGroupRecordByGroupId(idsOnly)(groupData.group_id),
       TE.altW(() => TE.right([])),
-      TE.map(tasks => ({ ...groupData, tasks }))
-    );
-}
 
-function getOnlyResultInQueryResultArr<RT extends unknown>(resultArr: RT[]) {
-  return pipe(resultArr as NEA.NonEmptyArray<RT>, NEA.head);
+      TE.map(tasks => {
+        type TaskWithIdOnly = Pick<Task, 'task_id'>;
+        const getTaskIdStrFromObj = view(lensProp<Task | TaskWithIdOnly>('task_id'));
+
+        if (idsOnly) return { ...groupData, tasks: map(getTaskIdStrFromObj)(tasks) };
+        return { ...groupData, tasks };
+      })
+    );
 }

@@ -6,7 +6,7 @@ import { BaseError } from '../utils/constants';
 import { flow, pipe } from 'fp-ts/lib/function';
 import { map, sequence } from 'fp-ts/lib/Array';
 import { Either, Applicative, mapLeft } from 'fp-ts/lib/Either';
-import { AggregateError, newAggregateError } from '../lib/AggregateError';
+import { AggregateError, newAggregateError } from '../lib/AggregateError/index';
 import { DecodeError, Decoder, draw, TypeOf } from 'io-ts/lib/Decoder';
 
 type AnyDecoder = Decoder<unknown, any>;

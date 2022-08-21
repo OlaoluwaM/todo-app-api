@@ -1,6 +1,8 @@
-import { AggregateError } from '../lib/AggregateError';
-import { Request, ResponseToolkit } from '@hapi/hapi';
+import { pipe } from 'fp-ts/lib/function';
 import { BaseError } from './constants';
+import { AggregateError } from '../lib/AggregateError/index';
+import { head, NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
+import { Request, ResponseToolkit } from '@hapi/hapi';
 
 export function dummyRouteHandler(req: Request, resHandler: ResponseToolkit) {
   return resHandler
@@ -21,6 +23,10 @@ export function deriveStatusCodeFromErrorTrail(aggregateErrorInstance: Aggregate
 export function generateErrorHandler(responseHandler: ResponseToolkit) {
   return (aggregateErrorInstance: AggregateError) =>
     responseHandler
-      .response({ err: `Error Trace. ${aggregateErrorInstance.message}` })
+      .response({ errors: aggregateErrorInstance.aggregatedMessages })
       .code(deriveStatusCodeFromErrorTrail(aggregateErrorInstance));
+}
+
+export function getOnlyResultInQueryResultArr<RT extends unknown>(resultArr: RT[]) {
+  return pipe(resultArr as NonEmptyArray<RT>, head);
 }

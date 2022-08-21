@@ -4,10 +4,10 @@ import * as TE from 'fp-ts/lib/TaskEither';
 
 import { pipe } from 'fp-ts/lib/function';
 import { traverse } from 'fp-ts/lib/Array';
-import { ToRecordOfOptions } from '../types';
+import { ToRecordOfOptions } from '../types/index';
 import { generateErrorHandler } from '../utils/helpers';
+import { GroupCreationAttributes } from '../db/schema';
 import { Request, ResponseToolkit } from '@hapi/hapi';
-import { GroupID, GroupCreationAttributes } from '../db/schema';
 import {
   getGroupRecordById,
   getAllGroupRecords,
@@ -16,6 +16,7 @@ import {
   deleteGroupRecordById,
   includeArrOfRelatedTaskObjsOrTaskIdsInGroupRecord,
 } from '../services/groups.service';
+import { RequestWithUrlParamGroupId } from './common';
 
 interface RequestWithPayload extends Request {
   payload: GroupCreationAttributes & Request['payload'];
@@ -25,15 +26,13 @@ interface RequestWithQueryStr extends Request {
   query: { withTasks: boolean; idsOnly: boolean } & Request['query'];
 }
 
-interface RequestWithUrlParams extends Request {
-  params: { groupId: GroupID } & Request['params'];
-}
+type RequestWithUrlParams = RequestWithUrlParamGroupId;
 
 export async function createGroup(
   req: RequestWithPayload,
   responseHandler: ResponseToolkit
 ) {
-  const groupCreationAttributes = {
+  const groupCreationAttributes: GroupCreationAttributes = {
     title: req.payload.title,
     description: req.payload.description ?? null,
   };
@@ -45,7 +44,7 @@ export async function createGroup(
     E.fold(
       err =>
         responseHandler
-          .response({ err: `Internal server Error. ${err.message}` })
+          .response({ errors: ['Internal server Error', ...err.aggregatedMessages] })
           .code(500),
       groupData => responseHandler.response(groupData).code(201)
     )
@@ -57,6 +56,7 @@ export async function getAllGroups(
   responseHandler: ResponseToolkit
 ) {
   const { withTasks, idsOnly } = request.query;
+  const errorHandler = generateErrorHandler(responseHandler);
 
   const queryForAllGroups = getAllGroupRecords();
   const includeTasks = traverse(TE.ApplicativePar)(
@@ -74,10 +74,7 @@ export async function getAllGroups(
   return pipe(
     queryResult,
     E.fold(
-      err =>
-        responseHandler
-          .response({ err: `Internal server Error. ${err.message}` })
-          .code(500),
+      errorHandler,
       groupData => responseHandler.response(groupData).code(200)
     )
   );
@@ -107,7 +104,7 @@ export async function getSingleGroup(
 
   return pipe(
     queryResults,
-    E.fold(errorHandler, groupData => responseHandler.response(groupData).code(201))
+    E.fold(errorHandler, groupData => responseHandler.response(groupData).code(200))
   );
 }
 
@@ -118,14 +115,14 @@ export async function updateGroup(
   const { groupId } = req.params;
   const errorHandler = generateErrorHandler(responseHandler);
 
-  const optionGroupCreationAttributes: ToRecordOfOptions<GroupCreationAttributes> = {
+  const groupUpdateAttributes: ToRecordOfOptions<GroupCreationAttributes> = {
     title: O.fromNullable(req.payload.title),
     description: O.fromNullable(req.payload.description),
   };
 
   const queryResults = await pipe(
     groupId,
-    updateGroupRecordById(optionGroupCreationAttributes)
+    updateGroupRecordById(groupUpdateAttributes)
   )();
 
   return pipe(

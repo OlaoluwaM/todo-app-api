@@ -1,7 +1,7 @@
 import * as IO from 'fp-ts/lib/IO';
 
 import { pipe } from 'fp-ts/lib/function';
-import { toUUID, UUID } from '../lib/decoders';
+import { toUUID, UUID } from '../lib/decoders/index';
 import { v4 as getUUIDLikeString } from 'uuid';
 import { compose, concat, isEmpty, join, lensIndex, over } from 'ramda';
 

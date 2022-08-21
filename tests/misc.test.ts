@@ -3,11 +3,11 @@ import * as d from 'io-ts/Decoder';
 import * as E from 'fp-ts/Either';
 
 import { pipe } from 'fp-ts/function';
-import { toNumber } from '../src/utils/index';
+import { toNumber } from '@utils/index';
 import { manualFail } from './helpers';
-import { QueryResult } from '../src/db/queryBuilder';
-import { AggregateError } from '../src/lib/AggregateError';
-import { DateDecoder, toUUID, UUID } from '../src/lib/decoders';
+import { QueryResult } from '@db/queryBuilder';
+import { AggregateError } from '@lib/AggregateError/index';
+import { DateDecoder, toUUID, UUID } from '@lib/decoders';
 import { v4 as randomUuidLikeString } from 'uuid';
 import { GroupDecoder, RowType, TaskDecoder } from '@db/schema';
 import {

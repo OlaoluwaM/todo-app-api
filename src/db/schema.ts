@@ -1,7 +1,6 @@
 import * as d from 'io-ts/lib/Decoder';
 
-import { StripNullFromProps } from '../types';
-import { DateDecoder, UUIDDecoder } from '../lib/decoders';
+import { DateDecoder, UUIDDecoder } from '../lib/decoders/index';
 
 export const GroupDecoder = d.struct({
   group_id: UUIDDecoder,
@@ -14,7 +13,6 @@ export const GroupDecoder = d.struct({
 export type Group = d.TypeOf<typeof GroupDecoder>;
 export type GroupID = Pick<Group, 'group_id'>['group_id'];
 export type GroupCreationAttributes = Pick<Group, 'title' | 'description'>;
-export type NonNullGroupCreationAttributes = StripNullFromProps<GroupCreationAttributes>;
 
 export const TaskDecoder = d.struct({
   task_id: UUIDDecoder,
@@ -29,6 +27,16 @@ export const TaskDecoder = d.struct({
 });
 
 export type Task = d.TypeOf<typeof TaskDecoder>;
+export type TaskID = Pick<Task, 'task_id'>['task_id'];
+export type TaskCreationAttributes = Omit<
+  Pick<Task, 'name' | 'due_date' | 'description'>,
+  'due_date'
+> & { dueDate: Task['due_date'] };
+
+export type TaskUpdateAttributes = Pick<Task, 'name' | 'description' | 'completed'> & {
+  dueDate: Task['due_date'];
+  newGroupId: Task['group_id'];
+};
 
 export type RowDecoder = typeof GroupDecoder | typeof TaskDecoder;
 export type RowType = Group | Task;

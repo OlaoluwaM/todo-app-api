@@ -1,4 +1,5 @@
 import Hapi from '@hapi/hapi';
+
 import { GLOBAL_ROUTE_PREFIX } from './utils/constants';
 
 import config from './config/index';
