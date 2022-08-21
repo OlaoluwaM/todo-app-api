@@ -14,13 +14,15 @@ services:
     depends_on:
       - postgres
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:5003/']
+      test: ['CMD', 'curl', '-f', 'http://localhost:5003/api/ping']
       interval: 10s
       timeout: 5s,
       retries: 5
 
   postgres:
-    image: postgres:14
+    build:
+      context: .
+      dockerfile: ./postgres_dockerfile
     mem_limit: 600m
     user: postgres
     env_file:

@@ -1,8 +1,36 @@
 import 'dotenv/config';
 
-const config = {
-  PORT: process.env.PORT || 5000,
-  HOST: process.env.NODE_ENV === 'development' ? 'localhost' : process.env.SERVER_PORT,
+const commonConfigOptions = {
+  POSTGRES_PORT: process.env.POSTGRES_PORT || 5432,
+  POSTGRES_USER: process.env.POSTGRES_USER,
+  POSTGRES_DB: process.env.POSTGRES_DB,
+  POSTGRES_PASSWORD: process.env.POSTGRES_PASSWORD,
 };
 
-export default config;
+const config = {
+  dev: {
+    PORT: 5000,
+    HOST: 'localhost',
+  },
+  container: {
+    PORT: process.env.PORT,
+    HOST: process.env.SERVER_HOST,
+  },
+  test: {
+    PORT: 5006,
+    HOST: 'localhost',
+    POSTGRES_DB: 'test_todos',
+  },
+};
+
+const ENV = (process.env?.NODE_ENV ?? 'dev') as keyof typeof config;
+const currentConfig = { ...commonConfigOptions, ...config[ENV] };
+
+export function generateConnectionURI() {
+  const { POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT, HOST } =
+    currentConfig;
+
+  return `postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${HOST}:${POSTGRES_PORT}/${POSTGRES_DB}`;
+}
+
+export default currentConfig;

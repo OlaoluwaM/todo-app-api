@@ -130,4 +130,5 @@ dist
 .pnp.*
 
 # Custom Additions
-envs/*.env
+src/db/schema-auto.ts
+sample-payloads/
