@@ -44,6 +44,8 @@ const config: Config.InitialOptions = {
     '@db/(.*)': '<rootDir>/src/db/$1',
     '@config/(.*)': '<rootDir>/src/config/$1',
     '@utils/(.*)': '<rootDir>/src/utils/$1',
+    '@routes/(.*)': '<rootDir>/src/routes/$1',
+    '@lib/(.*)': '<rootDir>/src/lib/$1/index',
     '@types': '<rootDir>/src/types/index',
   },
   watchman: false,

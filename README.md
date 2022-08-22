@@ -8,6 +8,19 @@ This API is containerized so you should be up and running should you run
 npm run compose:up
 ```
 
+**But before you do**, you'll need to set your environment variables. Create a .env file
+with the following non-sensitive values
+
+```text
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres123
+POSTGRES_DB=todos
+POSTGRES_PORT=5432
+
+PORT=5003
+SERVER_HOST=0.0.0.0
+```
+
 However, you can run the server nude if you have NodeJS installed on your machine. If you
 prefer this route, you first need to run
 

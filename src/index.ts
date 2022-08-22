@@ -1,4 +1,4 @@
-import pingRoute from './routes/ping';
+import pingRoute from './routes/ping.route';
 import pinoPluginConfig from './plugins/pino';
 import swaggerPluginConfig from './plugins/swagger';
 import generateTaskEndpointRoutes from './routes/tasks.route';
