@@ -4,6 +4,7 @@ import * as TE from 'fp-ts/lib/TaskEither';
 
 import { pipe } from 'fp-ts/lib/function';
 import { traverse } from 'fp-ts/lib/Array';
+import { BaseError } from '../utils/constants';
 import { ToRecordOfOptions } from '../types/index';
 import { generateErrorHandler } from '../utils/helpers';
 import { GroupCreationAttributes } from '../db/schema';
@@ -56,7 +57,6 @@ export async function getAllGroups(
   responseHandler: ResponseToolkit
 ) {
   const { withTasks, idsOnly } = request.query;
-  const errorHandler = generateErrorHandler(responseHandler);
 
   const queryForAllGroups = getAllGroupRecords();
   const includeTasks = traverse(TE.ApplicativePar)(
@@ -75,7 +75,16 @@ export async function getAllGroups(
   return pipe(
     queryResult,
     E.fold(
-      errorHandler,
+      aggErrInst => {
+        if (aggErrInst.aggregatedMessages[0] === BaseError.NO_MATCH) {
+          return responseHandler.response([]).code(200);
+        }
+
+        return responseHandler
+          .response({ errors: aggErrInst.aggregatedMessages })
+          .code(500);
+      },
+
       groupData => responseHandler.response(groupData).code(200)
     )
   );

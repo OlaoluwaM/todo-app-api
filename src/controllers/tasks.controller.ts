@@ -3,6 +3,7 @@ import * as E from 'fp-ts/lib/Either';
 import * as TE from 'fp-ts/lib/TaskEither';
 
 import { pipe } from 'fp-ts/lib/function';
+import { BaseError } from '../utils/constants';
 import { ToRecordOfOptions } from '../types/index';
 import { generateErrorHandler } from '../utils/helpers';
 import { Request, ResponseToolkit } from '@hapi/hapi';
@@ -69,11 +70,21 @@ export async function getSingleTask(
 
 export async function getAllTasks(request: Request, responseHandler: ResponseToolkit) {
   const queryResult = await getAllTaskRecords()();
-  const errorHandler = generateErrorHandler(responseHandler);
 
   return pipe(
     queryResult,
-    E.fold(errorHandler, taskData => responseHandler.response(taskData).code(200))
+    E.fold(
+      aggErrInst => {
+        if (aggErrInst.aggregatedMessages[0] === BaseError.NO_MATCH) {
+          return responseHandler.response([]).code(200);
+        }
+
+        return responseHandler
+          .response({ errors: aggErrInst.aggregatedMessages })
+          .code(500);
+      },
+      taskData => responseHandler.response(taskData).code(200)
+    )
   );
 }
 

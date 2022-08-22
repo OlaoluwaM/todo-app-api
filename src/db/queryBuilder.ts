@@ -7,13 +7,15 @@ import { BaseError } from '../utils/constants';
 import { flow, pipe } from 'fp-ts/lib/function';
 import { Either, Applicative, mapLeft } from 'fp-ts/lib/Either';
 import { AggregateError, newAggregateError } from '../lib/AggregateError/index';
-import { DecodeError, Decoder, draw, TypeOf } from 'io-ts/lib/Decoder';
+import { DecodeError, Decoder, draw, TypeOf, id } from 'io-ts/lib/Decoder';
 
-type AnyDecoder = Decoder<unknown, any>;
+type AnyDecoder = Decoder<any, any>;
 
 export type QueryParams = unknown[];
 export type QueryResult<A = unknown> = Either<AggregateError, A>;
 export type QueryBuilderClient = ReturnType<typeof queryBuilder>;
+
+export const idDecoderCreator = <T = any>() => id<T>();
 
 export default function queryBuilder(dbConnectionInstance: pkg.Pool) {
   return (query: string) =>

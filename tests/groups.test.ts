@@ -62,21 +62,14 @@ describe(`Tests for GET request to ${ROUTE_PREFIX}`, () => {
     expect(isEveryCreatedRecordPresentInResponse).toBeTruthy();
   });
 
-  test('Should ensure that endpoint responds with []  groups (todo lists)', async () => {
+  test('Should ensure that endpoint responds appropriately when there are no  groups (todo lists) in DB', async () => {
     // Arrange
-    // const groupIds = await createGroups(dbQueryClient)(10);
-    // if (groupIds instanceof AggregateError) throw groupIds;
 
     // Act
     const rawResponse = await axiosInstance.get<Group[]>(ENDPOINT);
     const { data: groupObjs } = rawResponse;
 
     // Assert
-    // const isEveryCreatedRecordPresentInResponse = all<Group>(({ group_id: groupId }) =>
-    //   includes(groupId)(groupIds)
-    // )(groupObjs);
-    expect(groupObjs).toEqual([])
-    // expect(groupIds).toHaveLength(groupObjs.length);
-    // expect(isEveryCreatedRecordPresentInResponse).toBeTruthy();
+    expect(groupObjs).toEqual([]);
   });
 });
