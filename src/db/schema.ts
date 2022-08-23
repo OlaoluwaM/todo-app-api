@@ -13,6 +13,7 @@ export const GroupDecoder = d.struct({
 export type Group = d.TypeOf<typeof GroupDecoder>;
 export type GroupID = Pick<Group, 'group_id'>['group_id'];
 export type GroupCreationAttributes = Pick<Group, 'title' | 'description'>;
+export type GroupWithTasks = Group & { tasks: (Task | TaskID)[] };
 
 export const TaskDecoder = d.struct({
   task_id: UUIDDecoder,

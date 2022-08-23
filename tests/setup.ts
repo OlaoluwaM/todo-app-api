@@ -5,10 +5,7 @@ import queryBuilder from '@db/queryBuilder';
 import generateTaskEndpointRoutes from '@routes/tasks.route';
 import generateGroupEndpointRoutes from '@routes/groups.route';
 
-import { pipe } from 'fp-ts/lib/function';
 import { Server } from '@hapi/hapi';
-import { SeedFn } from './helpers';
-import { map, Task } from 'fp-ts/lib/Task';
 import { generateServer } from '../src/server';
 import { GLOBAL_ROUTE_PREFIX } from '@utils/constants';
 import { default as config, generateConnectionURI } from '@config/index';
@@ -26,12 +23,12 @@ axiosInstance.interceptors.response.use(
     // Any status code that lie within the range of 2xx cause this function to trigger
     // Do something with response data
     response,
-  error => {
+  error =>
     // Any status codes that falls outside the range of 2xx cause this function to trigger
     // Do something with response error
-    console.error(error);
-    return Promise.reject(error);
-  }
+
+    // console.error(error);
+    Promise.reject(error)
 );
 
 export function getDbQueryCreator() {
@@ -65,10 +62,3 @@ export async function getServerInstance(): Promise<Server> {
 export async function destroyServerInstance(serverInstance: Server) {
   await serverInstance.stop();
 }
-
-// export async function seedDb(seedFn: SeedFn) {
-//   const { dbQuery, dbConnectionInstance } = getDbQueryCreator();
-//   const destroyDbConnection = () => closeDbConnection(dbConnectionInstance);
-
-//   await pipe(seedFn(dbQuery), map(destroyDbConnection))();
-// }
