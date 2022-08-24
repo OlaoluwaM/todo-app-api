@@ -23,12 +23,12 @@ axiosInstance.interceptors.response.use(
     // Any status code that lie within the range of 2xx cause this function to trigger
     // Do something with response data
     response,
-  error =>
+  error => {
     // Any status codes that falls outside the range of 2xx cause this function to trigger
     // Do something with response error
-
-    // console.error(error);
-    Promise.reject(error)
+    console.error(error);
+    return Promise.reject(error);
+  }
 );
 
 export function getDbQueryCreator() {
